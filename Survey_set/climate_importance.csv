@@ -1,0 +1,8 @@
+climate_importance,Argentina,Australia,Brazil,Canada,Colombia,Costa Rica,Czech Republic,Egypt,France,Germany,India,Indonesia,Ireland,Italy,Japan,Malaysia,Mexico,Netherlands,Nigeria,Philippines,Poland,Russia,Saudi Arabia,South Africa,Spain,Taiwan,Thailand,Turkey,United Kingdom,United States,Vietnam
+Extremely important,18,25,36,22,30,31,6,11,24,17,40,13,21,44,16,23,24,8,26,36,10,8,21,32,19,39,19,42,20,20,26
+Very important,46,28,41,33,48,50,26,20,35,38,37,48,33,35,34,39,51,25,38,42,28,22,31,42,49,31,29,31,31,29,35
+Somewhat important,25,26,15,27,14,13,38,40,28,30,12,19,29,16,39,24,20,38,11,14,41,35,24,12,22,22,42,16,30,24,26
+Not too important,7,13,4,12,4,4,24,13,10,10,5,14,11,3,9,9,4,24,14,4,16,26,11,7,7,6,8,6,14,14,7
+Not at all important,4,8,4,6,2,1,6,13,3,5,5,5,5,2,2,3,1,6,7,2,4,9,11,5,3,2,1,4,5,13,3
+Refused,1,0,1,0,1,0,0,2,0,0,2,2,1,1,0,2,1,0,4,2,0,0,2,3,0,0,1,1,0,1,2
+(Unweighted Base),2450,2668,2093,2888,2040,2464,2431,1394,2339,2375,4502,1377,1483,2554,2747,1125,2378,2495,1125,1126,2446,2568,952,1512,2319,1918,1442,1712,2587,13555,1263
