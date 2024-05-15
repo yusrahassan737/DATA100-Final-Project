@@ -1,3 +1,4 @@
 # DATA100-Final-Project
-## A group project to demonstrate key learnings from the course DATA100 using R's tidyverse and various packages within
+## Dec 2022
+### A group project to demonstrate key learnings from the course DATA100 using R's tidyverse and various packages within
 Our job was to analyze how the climate situation relates to various factors along with how those factors relate within themselves. The datasets we worked with to assess this are Sea Ice Rate Of Change, INT Emissions, Climate change opinion survey 2021, Primary Energy and Biofuel. After tidying these data sets and creating an individual analysis for each, we learned about trends for each of them. We also answered a variety of questions through creating multiple joint analyses by combining different data sets. This, along with comparing our findings with an article, allowed us to create our conclusion. Read the full report to learn more.
