@@ -1,0 +1,908 @@
+---
+title: "Data Dudes Project"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    theme: readable
+    toc: yes
+    number_sections: true
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+#### **TEAM NAME: Data Dudes**
+
+| Last Name (Family) | First Name (Given) | Student ID |
+|--------------------|--------------------|------------|
+| Azam               | Faiza              | 169020565  |
+| Beatty             | Jamie              | 169027003  |
+| Doneva             | Anna               | 169042350  |
+| **Hassan**         | Yusra              | 169024293  |
+| Khan               | Samiyah            | 169024449  |
+| Patel              | Janaki             | 169037500  |
+
+# Introduction
+
+Our job was to analyze how the climate situation relates to various
+factors along with how those factors relate within themselves. The
+datasets we worked with to assess this are Sea Ice Rate Of Change, INT
+Emissions, Climate change opinion survey 2021, Primary Energy and
+Biofuel. After tidying these data sets and creating an individual
+analysis for each, we learned about trends for each of them. We also
+answered a variety of questions through creating multiple joint analyses
+by combining different data sets. This, along with comparing our
+findings with an article, allowed us to create our conclusion.
+
+**Climate Change opinion survey 2021**
+
+Currently this dataset is made up of 18 different datasets. It lists
+countries' answers to different questions like how do you feel about
+participating in climate action. Each has the first column stating
+possible answers to a question asked relating to climate change -this is
+categorical, while the rest of the columns are countries containing how
+many people from each answered each option -these are integers. Once
+tidied, it becomes one dataset with the first column as countries
+(categorical) and the rest as answers to questions with the valurs being
+how many people from each country answered each answer (integer). To
+differentiate the answers by what question was asked, the topic is made
+part of the column name with a dash between its answer. The tidied data
+has 31 rows and 109 columns. There are a few columns that include many
+NAs -these are the ideology topic questions and the party question. It
+happens because the ideology_us and party questions were asked to only
+the US and ideology_row was asked to every country but the US. The data
+can not be joined however, because there is a different amount of
+responses.
+
+**INT Emissions**
+
+The export emissions data set contains data on the amount of emissions
+countries have produced from years 1949-2019. The emissions are split
+into four different emission types; Total C02 emissions (MMtonnes), Coal
+and Coke (MMtonnes C02), Consumed Natural gas (MMtonnes C02), Petroleum
+and other liquids (MMtonnes C02). There is only data for the USA and
+World from the years 1949-1980, so I solely used the data for years
+after 1980. The data set contains 4 variables: API, type: character;
+Emissions(formerly untitled), type: while importing, set to double;
+Year, type: originally character, changed while tidying to int; Amount,
+type: while importing, set to double. Emissions contains the name of the
+emissions types, Year goes from 1949-2019, but for most of the data set
+from 1980-2019. Amount is the quantity of CO2 emissions for each
+emission type in MMtonnes per year.
+
+**Sea Ice Rate of Change**
+
+This data set hold data of the sea ice index rates of change for
+different years and each month. The sea ice index rate of change data
+set gives us the rates for every year from 1978 to 2022 through January
+to December, containing 46 observations and 13 variables. Under each
+month the variable type is set to double as it contains the rate of
+change index. The year variable type was set to integer after that
+dataset was tidied up.
+
+**Biofuel** There are 5 variables, and 42256 observations worth of data.
+The variables consist of: API (chr), Type (chr), Years (int), Amount
+(dbl), Country (chr).
+
+**Primary Energy**
+
+The primary energy dataset offers statistics on how much primary energy
+is consumed and generated in countries around the world from 1980 to
+2019. There are 105,672 observations, 5 types of primary energy types:
+Coal, Natural Gas, Petroleum and other liquids, Nuclear, renewables and
+other. Furthermore, there are a total of 5 variables which includes
+API(type: Character), Energy(type: Character), Year(type:int),
+Amount(type:double), Country(type:Character).
+
+# Tidying
+
+We started off by loading and importing all our data in and tidying it
+one by one.
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(readr)
+library(readxl)
+library(modelr)
+library(broom)
+
+action <- read_csv("Survey_set/climate_action.csv")
+aware <- read_csv("Survey_set/climate_awareness.csv")
+belief <- read_csv("Survey_set/climate_beliefs.csv")
+happ <- read_csv("Survey_set/climate_happening.csv")
+imp <- read_csv("Survey_set/climate_importance.csv")
+info <- read_csv("Survey_set/climate_info.csv")
+worry <- read_csv("Survey_set/climate_worry.csv")
+impact <- read_csv("Survey_set/economic_impact.csv")
+fossil <- read_csv("Survey_set/fossil_more_less.csv")
+gov_i <- read_csv("Survey_set/gov_more_less.csv")
+gov_p <- read_csv("Survey_set/gov_priority.csv")
+harm_f <- read_csv("Survey_set/harm_future_gen.csv")
+harm_p <- read_csv("Survey_set/harm_personally.csv")
+ideo_r <- read_csv("Survey_set/ideology_row.csv")
+ideo_u <- read_csv("Survey_set/ideology_us.csv")
+paris <- read_csv("Survey_set/paris_support_oppose.csv")
+party <- read_csv("Survey_set/partyid_us.csv")
+renew <- read_csv("Survey_set/renewable_more_less.csv")
+Emissions <- read_csv("INT-Export-Emissions-09-09-2022_23-18-25.csv", col_types = cols(.default = col_double(), API = col_character(), ...2 = col_character(), ), skip = 1)
+Sea_Ice_Index_ROC <- read_xlsx("Sea_Ice_Index_Rates_of_Change_G02135_v3.0.xlsx", skip = 1)
+Biofuel <- read_csv("INT-Export-BioFuel-09-09-2022_22-28-53.csv", skip = 1)
+Primary_Energy <- read_csv("INT-Export-PrimaryEnergy-09-09-2022_23-12-37.csv", col_types = cols(.default = col_double(), API = col_character(), "...2" = col_character()), skip = 1)
+world <- read_tsv("WorldRegions.tsv", skip = 1)
+```
+
+**Climate Change opinion survey 2021** The climate survey datasets were
+cleaned by creating a tidying function, applying it to each individual
+dataset and joining them using the reduce function.
+
+```{r, include = FALSE}
+# Function to tidy climate survey -type data
+tidy_indp <- function(tib, name) {
+  len = length(tib)
+  tib %>%
+    pivot_longer(2:len, names_to = "Country", values_to = "ppl") %>%
+    pivot_wider(names_from = 1, values_from = "ppl") %>%
+    rename_with(~str_c(name, "- ", tolower(.)), ! starts_with("Country"))
+}
+
+# Mapping all climate survey datasets to the function, then joining all together
+all_data <- list(action, aware, belief, fossil, gov_i, gov_p, happ, harm_f, harm_p, ideo_r, ideo_u, imp, impact, info, paris, party, renew, worry)
+all_names <- c("Action", "Awareness", "Beliefs", "Fossil_support", "Gov_support", "Gov_priority", "Happening", "Harm_fut_gen", "Harm_personally", "Ideology_row", "Ideology_us", "Importance", "Ec_impact", "Info_support", "Paris_support", "Party", "Renew_support", "Worry")
+t_survey <- pmap(list(all_data, all_names), tidy_indp)
+t_survey <- reduce(t_survey, full_join, by = "Country")
+
+# Removing extra unweighted bases
+t_survey <- t_survey %>%
+  mutate("unweighted_base" = `Action- (unweighted base)`) %>%
+  select(! ends_with("(Unweighted base)"))
+```
+
+**INT Emissions** The emissions dataset was cleaned by: 1. Combining
+years and renaming Emissions: Using the rename and the pivot_longer
+functions, I converted the year columns into one column and added the
+values into their own column as well. 2. Turning years into int: Using
+the as.integer() function to change its type. 3. Deleting emissions
+title rows: Using filter() to separate only the Emissions rows that
+don't equal Emissions. 4. Deleting rows from 1949-1978: Using filter()
+to separate only the years after 1980. 5. Making a country column: Using
+mutate I created a new column called Country by separating the rows that
+have an N/A value under the API column.
+
+```{r, include = FALSE}
+# Combining years and renaming Emissions
+t_emissions <- Emissions %>% 
+  rename("Emissions" = "...2") %>% 
+  pivot_longer(3:73, names_to = "Year", values_to = "Amount") %>% 
+  arrange(Year)
+
+# Turning years into int
+t_emissions <- transform(t_emissions, Year = as.integer(Year))
+
+# Deleting emissions title rows
+t_emissions <- t_emissions %>% 
+  filter(Emissions != "Emissions")
+
+# Deleting rows from 1949-1978
+t_emissions <- t_emissions %>% 
+  filter(Year %in% 1980:2019)
+
+# Making country column
+t_emissions <- t_emissions %>% 
+  mutate(Country = ifelse(is.na(API), Emissions, NA)) %>%
+  select(API, Country, Year, everything()) %>%
+  fill(Country) %>%
+  filter(!is.na(Amount))
+```
+
+**Sea Ice Rate of Change** The Sea Ice Index was tidied by renaming the
+first column to year, converting its type to int and removing the
+problematic entry "1981-2010" which couldn't be converted.
+
+```{r, include = FALSE}
+t_ice_roc <- Sea_Ice_Index_ROC %>% 
+  rename(c("Year" = "...1")) %>% 
+  filter(Year != "1981-2010")
+t_ice_roc$Year <- as.integer(t_ice_roc$Year)
+```
+
+**Biofuel** The first step cleaning up this data was my importing using
+the read_csv function, as the Biofuel data set was contained in a csv
+file. Next, the years 1980 to 2019 each had their own columns, making
+the data set unnecessarily long (42 variables total). The first step was
+using the "pivot_longer()" function to create one column called "Years",
+which represented the entirety of the 39 year period, arranged in
+ascending order. Then, I saved these changed into a new variable called
+"Transformed", as this would act as my "data set" when I continued to
+tidy data. Here I also made sure that the Years variable type was "int",
+and the Amount variable type was "dbl". The last part of tidying data
+was renaming the column that contains information about biofuel
+presence, production and consumption to "Type", creating a new column
+for countries as the countries and the information in the now "Type"
+variable were in the same column. To efficiently separate the countries
+from the rest of the biofuel data, I used an ifelse(...) statement so
+that if it recognizes that country as its API, it get's put into the
+newly mutated "Countries" column, if not, then that information goes
+into the "Type" column.
+
+```{r, include = FALSE}
+t_biofuel <- Biofuel %>%
+  pivot_longer(3:length(Biofuel), names_to = "Year", values_to = "Amount") %>%
+  arrange(Year)
+t_biofuel$Year <- as.integer(t_biofuel$Year)
+t_biofuel$Amount <- as.double(t_biofuel$Amount)
+t_biofuel <- t_biofuel %>%
+  rename("Type" = "...2") %>%
+  mutate(Country = ifelse(is.na(API), Type, NA)) %>%
+  fill(Country) %>%
+  filter(!is.na(Amount))
+```
+
+**Primary Energy** The Primary Energy dataset was imported using
+read_csv. We made a separate year, amount, energy, country column and
+changed some variable types.
+
+```{r, include = FALSE}
+t_primary_energy <- Primary_Energy %>% 
+  rename(c("Energy" = "...2")) %>% 
+  pivot_longer(3:42, names_to = "Year", values_to = "Amount") %>% 
+  arrange(Year)
+t_primary_energy <- transform(t_primary_energy, Year = as.integer(Year), Amount = as.double(Amount))
+t_primary_energy <- t_primary_energy %>% 
+  mutate(Country = ifelse(is.na(API), Energy, NA)) %>% 
+  fill(Country) %>% 
+  filter(!is.na(Amount))
+t_primary_energy <- t_primary_energy %>%
+  filter(Energy != "Production (quad Btu)")%>%
+  filter(Energy != "Consumption (quad Btu)")
+```
+
+# Individual Analysis
+
+## Climate Survey Data
+
+Instead of trying to tackle every variable, I decided to choose a few
+that would best represent a country's concern for climate change and
+used these in my analysis later on. The first thing I did was try and
+find the country that had the highest percentage of responses for each
+category. For three of them, this turned out to be Costa Rica. I decided
+to take this further and see if its region (South/Latin America) seemed
+to have higher worry in general.
+
+```{r, include = FALSE}
+# I chose a few variables that I felt would best represent a country's concern for climate change
+posData <- t_survey %>%
+  select(Country, `Happening- yes`, `Harm_fut_gen- a great deal`, `Importance- extremely important`, `Renew_support- much more`, `Worry- very worried`)
+
+# Here, I look for trends with the max country -it looks like Costa Rica is very concerned
+maxData <- tibble(category = names(posData)[-1], topAmt = c(2:length(posData)), topCountry = c(2:length(posData)))
+for (i in 2:length(posData)) {
+  maxData$topAmt[i - 1] <- max(posData[[i]], na.rm = TRUE)
+  maxData$topCountry[i - 1] <- posData$Country[which(posData[i] == max(posData[[i]], na.rm = TRUE))]
+}
+```
+
+This plot measuring worry by region, seemed to support that theory:
+
+```{r, echo = FALSE}
+# Seeing how worried each region is
+t_survey <- t_survey %>%
+  inner_join(world, by = "Country")
+ggplot(t_survey) + geom_point(aes(Region, `Worry- very worried`), alpha = 0.5)
+```
+
+Next, I tried to find relationships within my chosen variables. I did so
+by examining their graphs and looking at the correlations.
+
+```{r, echo = FALSE}
+# Seeing if there is a relationship like expected, between any of these variables
+#ggplot(t_survey, aes(`Worry- very worried`, `Happening- yes`)) + geom_point() + geom_smooth()
+#ggplot(t_survey, aes(`Worry- very worried`, `Harm_fut_gen- a great deal`)) + geom_point() + geom_smooth()
+#ggplot(t_survey, aes(`Worry- very worried`, `Importance- extremely important`)) + geom_point() + geom_smooth()
+#ggplot(t_survey, aes(`Worry- very worried`, `Renew_support- much more`)) + geom_point() + geom_smooth()
+
+# Checking cors
+cors <- c(cor(t_survey$`Worry- very worried`, t_survey$`Happening- yes`), cor(t_survey$`Worry- very worried`, t_survey$`Harm_fut_gen- a great deal`), cor(t_survey$`Worry- very worried`, t_survey$`Importance- extremely important`), cor(t_survey$`Worry- very worried`, t_survey$`Renew_support- much more`)) # last is best
+cors
+```
+
+I found out that renewable energy support was the most correlated with
+worry, so I decided to try modelling this relationship. I created a
+residual plot to further check the quality of the data. There doesn't
+seem to be any obvious pattern and the trendline is 0, which means a
+linear model was indeed the right choice here and there doesn't seem to
+be any overfitting or underfitting.
+
+```{r, include = FALSE}
+# Taking it further with renewable energy support and worry
+survey_mod <- lm(`Renew_support- much more` ~ `Worry- very worried`, data = t_survey)
+
+# Doing a pred/resid plot for renewable energy support and worry
+survey_mod_2 <- t_survey %>%
+  add_predictions(survey_mod) %>%
+  add_residuals(survey_mod)
+
+ggplot(survey_mod_2, aes(`Worry- very worried`, resid)) + geom_point() + geom_smooth(method = lm, se = FALSE) # no pattern -looks good!
+```
+
+Thourgh glance, I found that both the R\^2 value and F-statistic was
+low, meaning the model wasn't very statistically significant even though
+there was some relationship there. This may be because of the survey
+questions and how the people asked interpreted them. Also, because only
+about 30 countries are included in the dataset, there could be sampling
+bias since the sample size isn't very big.
+
+```{r, echo = FALSE}
+glance(survey_mod) # From here we learn that the R^2 is about 35% (adjusted is about 33%) and that the F-statistic is a bit low, so the model isn't very good, but it might still does have some value.
+```
+
+## Emissions
+
+In the Emissions dataset, we focused in on Canada, United States and the
+World.
+
+```{r, echo = FALSE}
+# Plotting Canada's Emissions
+t_emissions %>% 
+  #rename("Amount - MMtonnes C02" = "Amount") %>% 
+  filter(Country == "Canada") %>% 
+  ggplot()+
+  geom_point(mapping = aes(x=Year, y=Amount,colour=Emissions))+
+  ggtitle("Canada Emissions")
+  #facet_grid(Emissions~.,nrow(2)) #Separating different emissions
+```
+
+Canada's emissions: This is a graph plotting Canada's emissions from
+years 1980 to 2019. All four emission types are represented in the
+graph, C02 emissions being an accumulation of the other three. Petroleum
+and other liquids have had the most C02 emissions of the 3 types, and
+its emissions have risen slightly the past 40 years, with some drops in
+the early 80s but pretty steady increase thereafter. Coal and coke
+emissions have remained around the same, with a decrease after 2010.
+Consumed natural gas has had a similar rise in emissions to Petroleum,
+with a slight decrease around 2005. Total C02 emissions have had the
+most dramatic rise, with fluctuations happening during the early 80s,
+early 90s, and late 2000s.
+
+```{r, echo = FALSE}
+# Plotting World Emissions
+t_emissions %>% 
+  filter(Country == "World") %>% 
+  ggplot()+
+  geom_point(mapping = aes(x=Year, y=Amount,colour=Emissions))+
+  ggtitle("World Emissions")
+  #facet_grid(Emissions~.,nrow(2))# Separating different emissions
+```
+
+World emissions: This graph plots the world's emissions from the years
+1980 to 2019. Consumed natural gas has had a steady increase in
+emissions, and so has Petroleum and other liquids. Coal and coke have
+had the most fluctuations in emission levels, increasing dramatically
+after 2000. This is unlike Canada who has had coal and coke emissions
+decline in recent years. The overall C02 emissions have increased
+greatly the past 40 years, with occasional decreases throughout.
+
+```{r, echo = FALSE}
+# Plotting USA Emissions
+t_emissions %>% 
+  filter(Country == "United States") %>% 
+  ggplot()+
+  geom_point(mapping = aes(x=Year, y=Amount,colour=Emissions))+
+  #geom_smooth()+
+  ggtitle("USA Emissions")
+  #facet_grid(Emissions~.,nrow(2)) #Separating different emissions
+```
+
+USA emissions: This graph plots the USA's emissions from years 1980 to
+2019. Unlike the world and Canada, C02 emissions have declined after
+2005. Consumed natural gas use has increased steadily, and Petroleum
+decreased after 2005, but started increasing again after 2012. Coal and
+coke emissions have had a dramatic decrease after 2005. World model for
+C02 emissions: The model for world C02 emissions is y= 488.8x -951154.8.
+The multiple R squared is close to 1, the model capturing 94.52% of the
+data, meaning it is a good model.
+
+```{r, include = FALSE}
+# Separating into 4 data frame
+C02 <- t_emissions %>% 
+  filter(Emissions == "CO2 emissions (MMtonnes CO2)") %>% 
+  rename("C02" = "Amount") %>% 
+  select(API,Country,Year,"C02")
+
+Coal_and_Coke <- t_emissions %>% 
+  filter(Emissions == "Coal and coke (MMtonnes CO2)") %>% 
+  rename("Coal_and_coke" = "Amount") %>% 
+  select(API,Country,Year,"Coal_and_coke")
+
+Natural_Gas <- t_emissions %>% 
+  filter(Emissions == "Consumed natural gas (MMtonnes CO2)") %>% 
+  rename("Natural_gas" = "Amount") %>% 
+  select(API,Country,Year,"Natural_gas")
+
+Petroleum_and_liquids <- t_emissions %>% 
+  filter(Emissions == "Petroleum and other liquids (MMtonnes CO2)") %>% 
+  rename("Petroleum_and_liquids" = "Amount") %>% 
+  select(API,Country,Year,"Petroleum_and_liquids")
+
+#Creating a model for world C02 emissions
+#Creating dataframe for World C02 emissions
+World_C02 <- C02 %>% 
+  filter(Country == "World") %>% 
+  select(Year,C02)
+World_C02
+
+#Graphing World_C02  
+ggplot(World_C02, aes(Year,C02))+geom_point()+geom_smooth()+ggtitle("World C02 Emissions (MMtonnes")
+
+#Creating a model
+World_C02_model<- lm(C02~Year,World_C02)
+summary_fit_model1 <- summary(World_C02_model)
+summary_fit_model1 
+
+#Creating a model for World Coal and Coke emissions
+#Creating dataframe for Coal_and_Coke
+World_CoalandCoke <- Coal_and_Coke %>% 
+  filter(Country == "World") %>% 
+  select(Year,Coal_and_coke)
+World_CoalandCoke
+
+#Graphing World_CoalandCoke
+ggplot(World_CoalandCoke, aes(x=Year,y=Coal_and_coke))+geom_point()+geom_smooth()+ggtitle("World Coal and Coke Emissions (MMtonnes C02")
+
+# Creating a model
+World_CoalandCoke_Model<- lm(Coal_and_coke~Year,World_CoalandCoke)
+summary_fit_model2 <- summary(World_CoalandCoke_Model)
+summary_fit_model2
+```
+
+Model for World Coal and Coke emissions: The model for world coal and
+coke emissions is y=251.08x -490865.04. The multiple R squared is close
+to 1, to model capturing 85.53% of the data, making it a good
+representation of the data.
+
+```{r, include = FALSE}
+# Creating a model for Natural_gas
+#Creating dataframe for Natural_gas
+World_Natural_Gas <- Natural_Gas %>% 
+  filter(Country == "World") %>% 
+  select(Year,Natural_gas)
+World_Natural_Gas
+#Graphing World_Natural_Gas
+ggplot(World_Natural_Gas, aes(x=Year,y=Natural_gas))+geom_point()+geom_smooth()+ggtitle("World Natural Gas Emissions (MMtonnes C02)")
+#Creating a model
+World_Naturalgas_Model<- lm(Natural_gas~Year,World_Natural_Gas)
+summary_fit_model3 <- summary(World_Naturalgas_Model)
+summary_fit_model3
+```
+
+World model for Natural gas emissions: The model for world natural gas
+emissions is y = 1.216e+02x -2.383e+05. The multiple R squared is close
+to 1, the model capturing 97.91% of the data, making it a good model.
+
+```{r, include = FALSE}
+#Creating a model for Petroleum_and_liquids
+#Creating dataframe for Petroleum_and_liquids
+World_Petroleum <- Petroleum_and_liquids %>% 
+  filter(Country == "World") %>% 
+  select(Year,Petroleum_and_liquids)
+World_Petroleum
+#Graphing World_Petroleum
+ggplot(World_Petroleum, aes(x=Year,y=Petroleum_and_liquids))+geom_point()+geom_smooth()+ggtitle("World Petroleum and other Liquids (MMtonnes C02)")
+#Creating a model
+World_Petroleum_Model<- lm(Petroleum_and_liquids~Year,World_Petroleum)
+summary_fit_model3 <- summary(World_Petroleum_Model)
+summary_fit_model3
+
+# Creating a graph for World vs USA emissions
+C02_World_USA <- C02 %>% 
+  filter(Country == "World" | Country == "United States") %>% 
+  ggplot()+
+  geom_point(mapping = aes(x=Year, y=C02, colour=Country))+
+  ggtitle("C02 Emission")
+C02_World_USA
+```
+
+World model for Petroleum and other liquids: The model for world
+petroleum and other liquids emissions is y = 1.161e+02x -2.220e+05. The
+model is a good representation of the data because the multiple R
+squared is close to 1, the model capturing 98.30% of the data.
+
+Overall, in my individual analysis I compared the amount of emissions
+the world, Canada, and the USA have produced in the past 40 years. Other
+than in the USA, total C02 emissions have increased steadily, seeing the
+most dramatic increase in world emissions. For most of the 40 year
+period, consumed natural gas emissions have been the lowest of the three
+types for the world and USA. For Canada the lowest was coal and coke
+emissions, with both Canada and the USA seeing this emission steadily
+decline in recent years. In conclusion, there is a positive linear
+correlation between the year and C02 emissions for the past 40 years.
+
+## Ice_Roc
+
+For the sea ice index rate of change, I decided to create plots that
+display the rate of change through the years month. From these plots, we
+are able to see that there isn't a constant pattern in which the indexed
+change through the years however, in some months you can see that there
+is either a higher or lower index. For the majority of the months, the
+index stays between -2 to 0.75. We can see that In January and February
+there is a difference in the rate of change, whereas January has a wider
+range of changes than February however they are around the range of -1
+to 1.75. In comparison when we look at the months of July and August
+they have a larger range of rates going from about -3.5 to 2. Though
+only one month apart the ROC in July is generally between -3 and -2.6
+August's ROC generally stays between -2 and -1.5. When looking at the
+plots there isn't a clear correlation between the months however, if we
+take a look at the ROC per month we can see that the many different
+years are generally in close range to each other.
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+ggplot(data = t_ice_roc, mapping = aes(x= January, y = Year), width)+
+  geom_point() +
+  geom_smooth()+
+  ggtitle("ROC per year in January")
+
+ggplot(data = t_ice_roc, mapping = aes(x= February, y = Year))+
+  geom_point() +
+  geom_smooth() +
+  ggtitle("ROC per year in February")
+
+ggplot(data = t_ice_roc, mapping=aes(x=August, y= Year))+
+  geom_point()+
+  geom_smooth()  +
+  ggtitle("ROC per year in August")
+
+ggplot(data = t_ice_roc, mapping=aes(x=July, y= Year))+
+  geom_point()+
+  geom_smooth() +
+  ggtitle("ROC per year in July")
+
+```
+
+## Biofuel
+
+In this particular analysis, it was best to use a bar graph that
+displays the consumption and production of a particular amount of
+Ethanol Fuel and Biomass Based Diesel. The countries United States,
+Brazil, and Zimbabwe were chosen to work with. These three countries are
+based on their levels of development (their standing in
+industrialization). For instance, the United States is ranked higher
+economically and in terms of the resources they have available for their
+country's sustainability. Brazil is considered up and coming following
+the United States, which leaves Zimbabwe. It was important to compare
+their developments as countries as that would help us see which
+countries are able to use renewable, efficient energy sources based on
+their means to continue as nations.
+
+```{r, echo = FALSE}
+t_biofuel %>%
+  filter(Country %in% c("United States", "Brazil", "Zimbabwe"), Year == 1981) %>%
+  ggplot() + geom_col(mapping = aes(x = Country, y = Amount, fill = Type))
+```
+
+Looking at the first graph, this is based on the year 1981, where Brazil
+had a moderately high level of Ethanol Fuel, consumption and production
+of Ethanol Fuel. United States in comparison had significantly lower
+levels of Ethanol Fuel available, consumption and production levels.
+Lastly, Zimbabwe does not produce or consume this fuel, but they have an
+insignificant amount of Ethanol Fuel accessible.
+
+```{r, echo = FALSE}
+t_biofuel %>%
+  filter(Country %in% c("United States", "Brazil", "Zimbabwe"), Year == 2000) %>%
+  ggplot() + geom_col(mapping = aes(x = Country, y = Amount, fill = Type))
+```
+
+Based on the second bar graph, 19 years later there are gradual
+improvements in the usage of Ethanol Fuel for Brazil (fuel availability
+increased by approximately 6000 Mmt, and production level increased by
+7000 Mmt) and United States (fuel presence up by 3750 Mmt, production at
+0), yet for Zimbabwe the existence of Ethanol Fuel as a whole has
+diminished.
+
+```{r, echo = FALSE}
+t_biofuel %>%
+  filter(Country %in% c("United States", "Brazil", "Zimbabwe"), Year == 2019) %>%
+  ggplot() + geom_col(mapping = aes(x = Country, y = Amount, fill = Type))
+```
+
+Lastly, after an additional 19 years, not only has the production,
+usage, and availability of Ethanol Fuel increased (by an approximate
+25000 Mmt, production now at 625 Mmt in comparison to its 0) for the
+United States and Brazil (fuel at 38000 Mmt higher than before), but the
+countries have also been introduced to a new biofuel: Biomass Based
+Diesel. Brazil (900 000 Mmt of Biomass Diesel) and United States (111000
+Mmt Biomass Diesel).
+
+Whether the biofuel being used is Ethanol or Biomass Based Based Diesel,
+acquiring of new knowledge regarding renewable and sustainable fuels
+also comes the understanding of what force is needed in order to finance
+these new methods. Zimbabwe showed no crucial improvements towards the
+availability, let alone the production and consumption of biofuels.
+Understanding the state of their economy, we can draw conclusions as to
+why there has been no progression in the duration of the 38 years worth
+of statistics shown in three different periods. If research continues,
+we will be able to increase the use and availability of biofuels five
+times more than it was in 2019.
+
+## Primary Energy
+
+```{r, echo = FALSE}
+primary_energy_6 <- t_primary_energy %>%
+  filter(Country %in% c("United States", "Canada", "United Kingdom"))
+ggplot(t_primary_energy) + geom_point(mapping = aes(x= Year, y = Amount, colour = Energy))
+```
+
+As the amount of energy sources used, such as coal, oil, and natural
+gas, increases over time, we can observe a positive association in the
+graph. The energies have a positive correlation showing a greater usage
+of different energies closer to recent years. All of the energies are
+gradually rising as well, some more later than others. such as renewable
+energy, which primarily began to do so in 2010. In accordance with
+growing environmental concerns, natural gas usage is rising more quickly
+and consistently than those of any other energy source.
+
+```{r, echo = FALSE}
+ggplot(primary_energy_6) + geom_col(aes(x = Country, y = Amount, fill = Energy))
+```
+
+The graph shows the energies broken down by nation. The height of the
+bar represents the total amount of energy used by the nation, while the
+various colours represent the quantity of each energy. We can observe
+that the primary energy used in the United States is substantially
+higher. with fossil fuels like coal and petroleum making up the bulk.
+Even though they use primary energy at a far lower rate, the other
+nations still rely heavily on petroleum and other fossil fuels.
+
+# Joint Analysis
+
+After finishing our individual findings, we wanted to put them together
+to hopefully draw further conclusions and connections from the data. We
+came up with a few questions to guide our research:
+
+## Do countries with primary energy as coal have higher emissions?
+
+```{r}
+countries_chosen <- c("Canada", "United States", "United Kingdom", "Australia", "China", "World")
+
+w_emissions <- t_emissions %>%
+  filter(Country %in% countries_chosen, Emissions == "CO2 emissions (MMtonnes CO2)")
+w_primary_energy <- t_primary_energy %>%
+  filter(Country %in% countries_chosen, Energy == "Coal (quad Btu)")
+joined_data <- inner_join(w_primary_energy, w_emissions, by = c("Year", "Country"))
+#view(joined_data)
+
+joined_data %>%
+  filter(Country == "World") %>%
+  ggplot(aes(Amount.x, Amount.y)) + geom_point() + geom_smooth() +
+  labs(title = "World coal emissions vs Emissions", x = "Coal (quad Btu)", y = "Emissions (MMtones C02)")
+
+cor(joined_data$Amount.x, joined_data$Amount.y)
+```
+
+For world emissions, for the big countries, the more coal a country
+uses, the higher carbon emissions. With the results from further
+analysis, the main contributor to coal consumption is China. This makes
+sense because of their large population and reliance on coal as an
+energy source. There is a very strong linear correlation, with the
+correlation coefficient being about 0.97.
+
+Comparing China and the United States
+
+```{r}
+joined_data %>%
+  filter(Country == "United States" | Country == "China") %>%
+  ggplot(aes(Amount.x, Amount.y, colour = Country)) + geom_point() + geom_smooth() +
+  labs(title = "United States and China coal consumption vs Emissions", x = "Coal Consumption", y = "Emissions")
+```
+
+This graph shows the sheer amount of coal China is using, and how much
+greater it is from the United States. There is a very strong positive
+linear correlation between coal consumption and the amount of C02
+emissions a country has, being especially prevalent for China.
+
+Graphing remaining countries
+
+```{r}
+joined_data %>%
+  filter(!Country %in% c("United States", "China", "World")) %>%
+  ggplot(aes(Amount.x, Amount.y, colour = Country)) + geom_point() + geom_smooth() +
+  labs(title = "Other Countries coal consumption vs Emissions", x = "Coal consumption", y = "Emissions")
+```
+
+The results for the remaining three countries is a lot more varied.
+Especially when there is a low coal consumption, the overall C02
+emissions fluctuate greatly. This is probably due to the multiple other
+factors affecting emissions, and when a country doesn't rely as heavily
+on coal, it is still relying on other energy sources contributing to
+their overall emissions.
+
+## Do countries with higher climate concern have similar primary energies?
+
+Similar primary energies are found in nations with greater climate
+concern. Ecosystems, human health, and the economy are all being
+negatively impacted by the changing global climate. South and Latin
+America's countries utilise a lot more fossil fuels than alternative
+energy sources, including biofuels, waste, oil, and coal. Countries like
+Argentina consumed more than 1 million barrels of oil as energy and
+Brazil consumed over 4 million. Although the countries vary in amount
+due to population they use a lot less than countries such as China or
+the United States, yet these countries also have the highest levels of
+climate concern, with over 50 individuals in each study concerned about
+the environment.
+
+## What primary energy's usage has increased as ice levels decreased?
+
+Coal and natural gas consumption increased as ice levels declined. These
+gases were not widely used in the 1900s, but their use skyrocketed in
+the 2000s due to industrial revolution, resulting in a large decline in
+ice levels, as indicated in the graphs. Since Arctic sea ice melts
+during the warmer summer months, I selected July to demonstrate the
+effect of ice levels decreasing. Coal and natural gas are not renewable
+and are produced by burning fossil fuels, which emit greenhouse gases,
+implying that as these energy are used more, sea ice levels would drop
+significantly.
+
+```{r, echo = FALSE}
+join_ice_primary <- inner_join(t_ice_roc, primary_energy_6, by = "Year")
+join_ice_primary1 <- join_ice_primary%>%
+  filter(Energy == "Coal (quad Btu)")
+join_ice_primary2 <- join_ice_primary%>%
+  filter(Energy == "Natural gas (quad Btu)")
+
+join_ice_primary2 %>%
+  ggplot(aes(July, Year, colour = Energy))+geom_point()
+```
+
+```{r, echo = FALSE}
+join_ice_primary1 %>%
+  ggplot(aes(July, Year, colour = Energy))+geom_point()
+```
+
+## Does increased biofuel usage help lower emissions?
+
+The graphs plotted show biofuel consumption and emissions by year, with
+a few different countries and the world. The first plot actually clearly
+shows the opposite of our expectation for the world. Instead of biofuel
+consumption decreasing emissions, it seems to have increased it. I
+decide to look at separate countries after, to see if this remains the
+case separating them into two graphs for heavy and lighter biofuel
+consumers.
+
+```{r, echo = FALSE}
+countries_chosen <- c("Canada", "United States", "United Kingdom", "Australia", "China", "World")
+
+w_emissions <- t_emissions %>%
+  filter(Country %in% countries_chosen, Emissions == "CO2 emissions (MMtonnes CO2)")
+w_biofuel <- t_biofuel %>%
+  filter(Country %in% countries_chosen, Type == "Consumption (Mmt)")
+smaller_b_e_data <- inner_join(w_biofuel, w_emissions, by = c("Year", "Country"))
+
+smaller_b_e_data %>%
+  filter(Country == "World") %>%
+  ggplot(aes(Amount.x, Amount.y)) + geom_point() + geom_smooth() +
+  labs(title = "World biofuel consumption vs Emissions", x = "Biofuel Consumption", y = "Emissions")
+```
+
+```{r, echo = FALSE}
+smaller_b_e_data %>%
+  filter(Country == "United States" | Country == "China") %>%
+  ggplot(aes(Amount.x, Amount.y, colour = Country)) + geom_point() + geom_smooth() +
+  labs(title = "United States and China consumption vs Emissions", x = "Biofuel Consumption", y = "Emissions")
+```
+
+Interestingly enough, the biofuel usage seems to increase with emissions
+(at least initially) in the heavy-consuming countries, United States and
+China. However, when looking at a few more countries, we find that some
+tend to be decreasing instead. Upon further inspection, however, we find
+that every single country's biofuel consumption does increase with
+emissions in the very beginning, however with time, emissions begins to
+level off or even decrease. The correlation between the two is actually
+shown to be moderate to strong according the correlation coefficient.
+
+```{r, include= FALSE}
+smaller_b_e_data %>%
+  filter(!Country %in% c("United States", "China", "World")) %>%
+  ggplot(aes(Amount.x, Amount.y, colour = Country)) + geom_point() + geom_smooth() +
+  labs(title = "Other Countries vs Emissions", x = "Biofuel Consumption", y = "Emissions")
+
+cor(smaller_b_e_data$Amount.x, smaller_b_e_data$Amount.y)
+```
+
+That doesn't make sense with how much our results varied. I think the
+reason for all this variation then is due to the fact that emissions are
+affected by a ton of factors and this may not be one of the leading ones
+-many countries have started to put measures in place to decrease their
+emissions and with years the emissions have always increased as we
+become more and more industrialized.
+
+## Does South/Latin America have lower emissions since they seem to be the most concerned?
+
+The following graph shows emissions by region. We see that South America
+does have some of the lowest emissions.
+
+```{r, echo = FALSE}
+emissions_concern <- t_emissions %>%
+  filter(Year %in% 2009:2019) %>%
+  inner_join(t_survey, by = "Country")
+ggplot(emissions_concern, aes(Region, Amount)) +
+  geom_point() + 
+  labs(title = "Region vs 2009-2019 emissions")
+```
+
+Another graph showed emissions by country in South America -Costa Rica
+did have some of the lowest emissions.
+
+```{r, include = FALSE}
+emissions_concern %>%
+  filter(Region == "South/Latin America") %>%
+  ggplot(aes(Country, Amount)) +
+  geom_point() + 
+  geom_smooth() +
+  labs(title = "South America countries vs 2009-2019 emissions")
+```
+
+However, it's important to make sure that these results follow through
+for other countries as well. To do this, I decided to plot worry by
+emissions and check the correlation of these two variables.
+
+```{r, echo = FALSE}
+emissions_concern %>%
+  ggplot(aes(`Worry- very worried`, Amount)) +
+  geom_point(aes(colour = Region)) + 
+  geom_smooth(method = lm) +
+  labs(title = "Global South countries's climate worry vs 2009-2019 emissions")
+
+cor(emissions_concern$`Worry- very worried`, emissions_concern$Amount) # very close to 0
+```
+
+Both the graph's line of best fit and the correlation show that the
+relationship isn't very strong. That means, even if it holds true for
+Costa Rica and the South America region, it is not a good idea to try to
+use a country's worry to predict its emissions. In hindsight, this makes
+sense because it could be possible for a country to be really worried
+even if they have high emissions because bringing them down may be
+really difficult.
+
+## Article Analysis
+
+It's not the first time that emissions have been high in our atmosphere
+but the majority are the highest they've ever been, especially for
+greenhouse gases. Gases known as greenhouse gases are known to absorb
+and hold heat in the atmosphere. Some of these gases are water vapour,
+carbon dioxide, methane, and nitrous oxide. We know that the burning of
+biomass and fossil fuels releases CO2 into our atmosphere. When looking
+at our emissions data frame world emissions plot, when can see the
+correlation between the CO2 emissions and the coal and coke. You can see
+the way that they both rise and decrease in proportion to one another,
+in the same pattern through the years that are plotted. Our emission
+rates are at a level that is not sustainable-and the "Canada Emissions"
+graph is proof of that. If we take a look at the CO2 levels, they are
+increasing at an unimaginable level up until 2020. If we continue down
+this path, we most certainly will continue to follow the trend being
+displayed. Similarly, if we look at the "Consumed Natural Gas" levels on
+the same graph, that too, increasing (increases by 100 Mmt from 1980 to
+2020) at an identical rate as CO2 levels; they all build off of one
+another. The usage of unsustainable and non-renewable sources leads to a
+great amount of CO2 being released into the atmosphere which therefore
+creates emissions. In conclusion, this article supports the ideologies
+of the effects that emissions have on our planet, and what there might
+be to come.
+
+Citation: "Climate Change Background Info." Clean Foundation, 21 July
+2020,
+<https://cleanfoundation.ca/climate-change-background-info/?gclid=Cj0KCQiAnNacBhDvARIsABnDa6-TuAqIyb8xP7KAOGZahfTiloMVwDc3fq5tVT4qm_-kAD9iZw0daQkaArKEEALw_wcB.>
+Accessed 08 December 2022.
+
+# Conclusions
+
+In conclusion, there are significant regional differences in both
+climate concerns and emissions. Some nations, including those in the
+European Union, have drastically cut their emissions of greenhouse gases
+while increasing their usage of renewable energy sources. However, some
+nations continue to heavily rely on fossil fuels, particularly those
+with economies that are expanding quickly, which has led to a rise in
+their emissions. As a renewable energy source, the usage of biofuels
+varies greatly amongst nations as well. While some have made substantial
+efforts to include them in their energy mix, others have been slower to
+do so. In order to combat climate change, there must be a worldwide
+effort and a determined effort on the part of all nations to switch to
+greener kinds of energy.
